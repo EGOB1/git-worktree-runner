@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Claude Code AI adapter
 
-# Find the actual claude executable (not a shell function)
-# Returns the path to the executable, or empty string if not found
+# Find the actual Claude entry point, including shell functions or aliases
+# Returns the path to the executable, or the command name if it is shell-defined
 find_claude_executable() {
   local cmd
 
