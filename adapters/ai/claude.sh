@@ -21,6 +21,18 @@ find_claude_executable() {
     }
   done
 
+  # Fallback: detect shell functions or aliases defined in the current shell
+  for cmd in claude claude-code; do
+    local cmd_type
+    cmd_type="$(type -t "$cmd" 2>/dev/null)" || continue
+    case "$cmd_type" in
+      function|alias)
+        echo "$cmd"
+        return 0
+        ;;
+    esac
+  done
+
   # Fallback: use type -t to check if it's an executable file
   for cmd in claude claude-code; do
     if [ "$(type -t "$cmd" 2>/dev/null)" = "file" ]; then
