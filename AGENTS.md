@@ -78,9 +78,9 @@ Most adapters are defined declaratively in the **adapter registry** (`lib/adapte
 
 ### Command Flow
 
-```
+
 bin/gtr main() → case statement → cmd_*() handler → lib/*.sh functions → adapters (if needed)
-```
+
 
 Key dispatch: `new`→`cmd_create`, `rm`→`cmd_remove`, `mv|rename`→`cmd_rename`, `go`→`cmd_go`, `run`→`cmd_run`, `editor`→`cmd_editor`, `ai`→`cmd_ai`, `copy`→`cmd_copy`, `ls|list`→`cmd_list`, `clean`→`cmd_clean`, `init`→`cmd_init`, `config`→`cmd_config`, `completion`→`cmd_completion`, `doctor`→`cmd_doctor`, `adapter`→`cmd_adapter`.
 
