@@ -1,47 +1,71 @@
-name: CI
+#!/usr/bin/env bash
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+find_claude_executable() {
+  local cmd exe_path cmd_type
 
-permissions: read-all
+  if [[ -x "$HOME/.claude/local/claude" && ! -d "$HOME/.claude/local/claude" ]]; then
+    printf '%s\n' "$HOME/.claude/local/claude"
+    return 0
+  fi
 
-jobs:
-  shellcheck:
-    if: ${{ github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository }}
-    name: ShellCheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  for cmd in claude claude-code; do
+    if exe_path="$(type -P "$cmd" 2>/dev/null)" && [[ -n "$exe_path" ]]; then
+      [[ "$exe_path" == /* ]] || exe_path="$PWD/$exe_path"
+      printf '%s\n' "$exe_path"
+      return 0
+    fi
+  done
 
-      - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+  for cmd in claude claude-code; do
+    cmd_type="$(shopt -s expand_aliases; type -t "$cmd" 2>/dev/null)" || continue
+    case "$cmd_type" in
+      function|alias)
+        printf '%s\n' "$cmd"
+        return 0
+        ;;
+    esac
+  done
 
-      - name: Run ShellCheck
-        run: |
-          shellcheck bin/gtr bin/git-gtr lib/*.sh lib/commands/*.sh adapters/editor/*.sh adapters/ai/*.sh
+  return 1
+}
 
-  completions:
-    if: ${{ github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository }}
-    name: Completions
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+ai_can_start() {
+  find_claude_executable >/dev/null 2>&1
+}
 
-      - name: Verify completion files are up to date
-        run: ./scripts/generate-completions.sh --check
+# Usage: ai_start path [args...]
+ai_start() {
+  local path claude_cmd cmd_type
+  local configured_args=("${GTR_AI_CMD_ARGS[@]}")
 
-  test:
-    if: ${{ github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository }}
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  if (( $# == 0 )); then
+    log_error "Usage: ai_start path [args...]"
+    return 1
+  fi
+  path="$1"
+  shift
 
-      - name: Install BATS
-        run: sudo apt-get update && sudo apt-get install -y bats
+  if ! claude_cmd="$(find_claude_executable)" || [[ -z "$claude_cmd" ]]; then
+    log_error "Claude Code not found. Install from https://claude.com/claude-code"
+    log_info "The CLI is called 'claude' (or 'claude-code' in older versions)"
+    return 1
+  fi
 
-      - name: Run tests
-        run: bats tests/
+  if [[ ! -d "$path" ]]; then
+    log_error "Directory not found: $path"
+    return 1
+  fi
+
+  cmd_type="$(shopt -s expand_aliases; type -t "$claude_cmd" 2>/dev/null)" || cmd_type=""
+  (
+    CDPATH= cd -- "$path" || exit
+    if [[ "$cmd_type" == alias ]]; then
+      # Parse the known command name to expand its alias; keep arguments quoted.
+      set -- "${configured_args[@]}" "$@"
+      shopt -s expand_aliases
+      eval "$claude_cmd \"\$@\""
+    else
+      "$claude_cmd" "${configured_args[@]}" "$@"
+    fi
+  )
+}
