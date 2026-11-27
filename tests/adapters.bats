@@ -198,6 +198,16 @@ EOF
   [ "$output" = "hello world" ]
 }
 
+@test "find_claude_executable detects shell functions" {
+  source "$PROJECT_ROOT/adapters/ai/claude.sh"
+  claude() {
+    :
+  }
+
+  result=$(find_claude_executable)
+  [ "$result" = "claude" ]
+}
+
 @test "override AI adapters preserve configured flags" {
   export HOME="$BATS_TMPDIR/home"
   PATH="/usr/bin:/bin"
